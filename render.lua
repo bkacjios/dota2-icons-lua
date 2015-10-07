@@ -24,7 +24,7 @@ local dota = {
 	fill_black = limlib2.color.new(0,0,0,255),
 	fill_white = limlib2.color.new(255,255,255,255),
 
-	font = imlib2.font.load("Aerial/10"),
+	font = imlib2.font.load("Aerial/11"),
 
 	dmg_type_color = {
 	    DAMAGE_TYPE_PHYSICAL = limlib2.color.new(128,128,128,255), -- #808080
@@ -87,9 +87,9 @@ end
 
 do
 	local back_poly = imlib2.polygon.new()
-	back_poly:add_point(0, 48)
-	back_poly:add_point(20, 48)
-	back_poly:add_point(25, 64)
+	back_poly:add_point(0, 47)
+	back_poly:add_point(25, 47)
+	back_poly:add_point(30, 64)
 	back_poly:add_point(0, 64)
 
 	function dota.renderItemIcon(name,manacost,color)
@@ -117,7 +117,7 @@ do
 
 		local img = imlib2.image.load(use_prerendered and prerendered_icon or vpkrendered_icon)
 		img:fill_polygon(back_poly, color)
-		img:draw_text(dota.font, manacost, (3 - string.len(manacost)) * 4, 50, dota.fill_white)
+		img:draw_text(dota.font, manacost, (4 - string.len(manacost)) * 3, 49, dota.fill_white)
 		img:save(vpkrendered_icon)
 	end
 end
