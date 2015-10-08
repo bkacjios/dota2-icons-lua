@@ -3,11 +3,6 @@ Lua port of https://github.com/rossengeorgiev/dota2mod_manacost
 
 This script will automatically parse all spell icons and item icons. It will use the data found in the vpk to overlay manacost and damage type onto the image.
 
-## To-do list
-
-- [ ] Convert imlib2 to ffi and drop dependancy
-- [ ] Convert struct to ffi and drop dependancy
-
 ## Install instructions
 
 * [Download latest VPK here](https://github.com/blackawps/dota2-icons-lua/releases)
@@ -18,6 +13,11 @@ This script will automatically parse all spell icons and item icons. It will use
  * ![gameinfo.gi](http://i.imgur.com/diz1qHA.png)
 * Launch Dota2 and enjoy!
 ![dota2](http://i.imgur.com/lie7g0i.png)
+
+## To-do list
+
+- [ ] Convert imlib2 to ffi and drop dependancy
+- [ ] Convert struct to ffi and drop dependancy
 
 ## Build Requirements
 * http://luajit.org/download.html
