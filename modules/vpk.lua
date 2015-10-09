@@ -86,13 +86,6 @@ function VPK:readHeader()
 	else
 		error("Unsupported VPK version: " .. self.version)
 	end
-
-	--[[print("VPK Debug")
-	print("    FILE      : " .. self.vpk_path)
-	print("    VERSION   : " .. self.version)
-	print("    SIGNATURE : " .. self.signature)
-	print("    TREE SIZE : " .. self.tree_length)
-	print("    HEADER LEN: " .. self.header_length)]]
 	f:close()
 end
 
@@ -113,12 +106,12 @@ function VPK:readTree()
 			error("Error parsing index (out of bounds)")
 		end
 
-		local ext = self:read_sz(f)
+		local ext = self:_read_tree(f)
 
 		if ext == '' then break end
 
 		while true do
-			local path = self:read_sz(f)
+			local path = self:_read_tree(f)
 
 			if path == '' then break end
 
@@ -129,7 +122,7 @@ function VPK:readTree()
 			end
 
 			while true do
-				local name = self:read_sz(f)
+				local name = self:_read_tree(f)
 
 				if name == "" then break end
 
@@ -163,7 +156,7 @@ function VPK:readTree()
 	f:close()
 end
 
-function VPK:read_sz(f)
+function VPK:_read_tree(f)
 	local buf = {}
 	local chunk
 
@@ -321,9 +314,35 @@ end
 
 function VPK:getFile(path)
 	local metadata, err = self:getFileMetadata(path)
+
 	if not metadata then return false, err end
+
 	metadata.vpk = self
-	return setmetatable(metadata,VPKFile):initialize()
+
+	if metadata.preload ~= "" then
+		metadata.preload = "..."
+	end
+
+	metadata.length = metadata.preload_length + metadata.file_length
+	metadata.offset = 0
+
+	if metadata.file_length == 0 then
+		return false, format("File (%q) has a length of zero", path)
+	end
+
+	local path = self.vpk_path
+	if metadata.archive_index ~= 0x7fff then
+		path = gsub(path, "dir.", format("%03d.", metadata.archive_index))
+	end
+
+	local f, err = open(path, "rb")
+
+	if not f then return false, err end
+
+	metadata.archive = f
+	metadata.archive:seek("set", metadata.archive_offset)
+
+	return setmetatable(metadata,VPKFile)
 end
 
 function VPK:hasFile(path)
@@ -333,28 +352,6 @@ end
 --------------------------------
 -- VPK FILE METATABLE METHODS --
 --------------------------------
-
-function VPKFile:initialize()
-	if self.preload ~= "" then
-		self.preload = "..."
-	end
-
-	self.length = self.preload_length + self.file_length
-	self.offset = 0
-
-	if self.file_length == 0 then
-		return
-	end
-
-	local path = self.vpk.vpk_path
-	if self.archive_index ~= 0x7fff then
-		path = gsub(self.vpk.vpk_path, "dir.", format("%03d.", self.archive_index))
-	end
-
-	self.archive = assert(open(path, "rb"))
-	self.archive:seek("set", self.archive_offset)
-	return self
-end
 
 function VPKFile:save(path)
 	local pos = self.archive:seek()

@@ -1,5 +1,6 @@
 local vpk = require("modules.vpk")
 local steam = require("modules.steam")
+local benchmark = require("modules.benchmark")
 
 local limlib2 = require("limlib2")
 
@@ -53,7 +54,12 @@ function dota.mkdir(path)
 	end
 end
 
+benchmark.start()
 local pak = vpk.load(dota.vpk_dir)
+benchmark.finish("Loaded %q in {time} seconds",dota.vpk_dir)
+
+local items_rendered = 0
+local abilities_rendered = 0
 
 do
 	local back_poly = imlib2.polygon.new()
@@ -82,6 +88,8 @@ do
 		img:fill_polygon(back_poly, dota.fill_black)
 		img:fill_polygon(color_poly, color)
 		img:save(vpkrendered_icon)
+
+		abilities_rendered = abilities_rendered + 1
 	end
 end
 
@@ -119,6 +127,8 @@ do
 		img:fill_polygon(back_poly, color)
 		img:draw_text(dota.font, manacost, (4 - string.len(manacost)) * 3, 49, dota.fill_white)
 		img:save(vpkrendered_icon)
+
+		items_rendered = items_rendered + 1
 	end
 end
 
@@ -227,12 +237,19 @@ end
 
 dota.removeAll(dota.output_dir)
 
+benchmark.start()
 dota.parseItemIcons()
-dota.parseAbilityIcons()
+benchmark.finish("Parsed %i item icons in {time} seconds", items_rendered)
 
+benchmark.start()
+dota.parseAbilityIcons()
+benchmark.finish("Parsed %i ability icons in {time} seconds", abilities_rendered)
+
+benchmark.start()
 local pak = vpk.new()
 pak:addFiles("rendered_icons")
 pak:addFiles("my_mods")
 pak:save("pak01_dir.vpk")
+benchmark.finish("Created pak01_dir.vpk in {time} seconds")
 
 assert(os.rename("pak01_dir.vpk", dota.vpk_output))

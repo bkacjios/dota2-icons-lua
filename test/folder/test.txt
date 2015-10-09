@@ -1,0 +1,1 @@
+this is a file inside a folder to test the recursion of adding files
