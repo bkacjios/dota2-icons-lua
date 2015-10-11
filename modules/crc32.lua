@@ -1,6 +1,3 @@
---go @ bin/luajit.exe -jdump *
---CRC-32 implementation, see http://www.geocities.ws/malbrain/
---TODO: the zlib implementation of crc32 is 6x faster, can we do better with Lua?
 local ffi = require'ffi'
 local bit = require'bit'
 
@@ -20,11 +17,6 @@ local function crc32(buf, sz, crc)
 		crc = bit.bxor(bit.rshift(crc, 4), s_crc32[bit.bxor(bit.band(crc, 0xF), bit.rshift(buf[i], 4))])
 	end
 	return bit.bnot(crc)
-end
-
-if not ... then
-	assert(crc32'Game\'s the same, just got more fierce.' == 0x2c40120a)
-	require'hash_benchmark'
 end
 
 return crc32

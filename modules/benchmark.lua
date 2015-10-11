@@ -2,7 +2,7 @@ local print = print
 local clock = os.clock
 local format = string.format
 
-module("modules.benchmark")
+module(...)
 
 local time
 

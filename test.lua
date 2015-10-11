@@ -1,9 +1,15 @@
 local vpk = require("modules.vpk")
+local crc32 = require("modules.crc32")
 
 local pak = vpk.new()
 pak:addFiles("test")
 pak:save("test.vpk")
 
+print("Directory")
+for k,v in pairs(pak.directory) do print(k,v) end
+
 local f = assert(pak:getFile("something.txt"))
-print(f:verify())
+print("DATA", f:readAll())
+print("VERYIFY", f:verify())
+
 f:close()
