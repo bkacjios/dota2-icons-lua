@@ -16,13 +16,12 @@ This script will automatically parse all spell icons and item icons. It will use
 
 ## To-do list
 
+- [x] Convert struct to ffi and drop dependancy
 - [ ] Convert imlib2 to ffi and drop dependancy
-- [ ] Convert struct to ffi and drop dependancy
 
 ## Build Requirements
 * http://luajit.org/download.html
 * https://github.com/asb/lua-imlib2
-* https://github.com/kieselsteini/lua-struct
 * https://github.com/keplerproject/luafilesystem
 
 ### Build instructions
