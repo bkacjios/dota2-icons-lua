@@ -91,7 +91,7 @@ function new()
 		signature = 0x55aa1234,
 		version = 1,
 		tree_size = 0,
-		header_size = 4*3,
+		header_size = ffi.sizeof("VPKHeader"),
 		tree = {},
 		directory = {},
 		vpk_path = nil, -- Gets set if saved
@@ -100,10 +100,10 @@ end
 
 function load(path)
 	local pak = setmetatable({
-		signature = 0,
-		version = 0,
+		signature = 0x55aa1234,
+		version = 1,
 		tree_size = 0,
-		header_size = 0,
+		header_size = ffi.sizeof("VPKHeader"),
 		tree = {},
 		directory = {},
 		vpk_path = path,
@@ -115,7 +115,8 @@ end
 function VPK:readHeader()
 	local f = assert(open(self.vpk_path, "rb"))
 
-	local header = ffi.cast("VPKHeader*", f:read(3*4))
+	local size = ffi.sizeof("VPKHeader")
+	local header = ffi.cast("VPKHeader*", f:read(size))
 
 	self.signature = header.signature
 	self.version = header.version
@@ -128,12 +129,13 @@ function VPK:readHeader()
 		self.tree_size = 0
 	-- Version 1
 	elseif self.version == 1 then
-		self.header_size = 4*3
+		self.header_size = size
 	elseif version == 2 then
-		local extended = ffi.cast("VPKHeaderV2*", f:read(4*4))
+		local size2 = ffi.sizeof("VPKHeaderV2")
+		local extended = ffi.cast("VPKHeaderV2*", f:read(size2))
 
 		-- TODO: Handle the extended V2 header info
-		self.header_size = 4*7
+		self.header_size = size + size2
 	else
 		error("Unsupported VPK version: " .. self.version)
 	end
@@ -167,10 +169,10 @@ function VPK:readTree()
 
 			if path == '' then break end
 
-			if path ~= ' ' then
-				path = path .. '/'
-			else
+			if path == ' ' then
 				path = ''
+			else
+				path = path .. '/'
 			end
 
 			while true do
@@ -178,21 +180,20 @@ function VPK:readTree()
 
 				if name == "" then break end
 
-				local metadata = ffi.cast("VPKDirectoryEntry*", f:read(18))
+				local data = ffi.cast("VPKDirectoryEntry*", f:read(ffi.sizeof("VPKDirectoryEntry")))
 
-				if metadata.archive_index == 0x7fff then
-					metadata.archive_offset = metadata.archive_offset + self.header_size + self.tree_size
+				if data.archive_index == 0x7fff then
+					data.archive_offset = data.archive_offset + self.header_size + self.tree_size
 				end
 
-				metadata = {
-					crc32 = metadata.crc32,
-					preload_size = metadata.preload_size,
-					archive_index = metadata.archive_index,
-					archive_offset = metadata.archive_offset,
-					file_size = metadata.file_size,
+				local metadata = {
+					preload_data = f:read(data.preload_size),
+					crc32 = data.crc32,
+					preload_size = data.preload_size,
+					archive_index = data.archive_index,
+					archive_offset = data.archive_offset,
+					file_size = data.file_size,
 				}
-
-				metadata.preload_data = f:read(metadata.preload_size)
 
 				if not self.tree[ext] then
 					self.tree[ext] = {}
@@ -256,7 +257,7 @@ function VPK:addFiles(root, overwrite, vpk_path)
 				if not ext then ext = " " end
 
 				local relative_path = vpk_path:gsub(match(vpk_path, root .. "/?"),"")
-				if relative_path == "" then relative_path = " " end -- volvo
+				if relative_path == "" then relative_path = " " end
 
 				if not self.tree[ext] then
 					self.tree[ext] = {}
@@ -291,10 +292,7 @@ function VPK:save(outFile)
 
 	local f = assert(open(outFile, "wb"))
 
-	local header = ffi.new("VPKHeader")
-	header.signature = self.signature
-	header.version = self.version
-	header.tree_size = self.tree_size
+	local header = ffi.new("VPKHeader", self.signature, self.version, self.tree_size)
 
 	f:write(ffi.string(header, ffi.sizeof(header)))
 
@@ -333,13 +331,7 @@ function VPK:save(outFile)
 				local file_size = f:seek() - file_offset
 				f:seek("set", metadata_offset)
 
-				local entry = ffi.new("VPKDirectoryEntry")
-				entry.crc32 = checksum
-				entry.preload_size = 0
-				entry.archive_index = 0x7fff
-				entry.archive_offset = file_offset - self.tree_size - self.header_size
-				entry.file_size = file_size
-				entry.terminator = 0xffff
+				local entry = ffi.new("VPKDirectoryEntry", checksum, 0, 0x7fff, file_offset - self.tree_size - self.header_size, file_size, 0xffff)
 
 				f:write(ffi.string(entry, ffi.sizeof(entry)))
 			end
