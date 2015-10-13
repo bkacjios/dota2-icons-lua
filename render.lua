@@ -58,6 +58,27 @@ benchmark.start()
 local pak = vpk.load(dota.vpk_dir)
 benchmark.finish("Loaded %q in {time} seconds",dota.vpk_dir)
 
+local cosmetics_file = assert(pak:getFile(dota.vpk_cosmetic_dir))
+
+benchmark.start()
+local cosmetic_data = steam.VDFToTable(cosmetics_file:readAll())["items_game"]
+cosmetics_file:close()
+benchmark.finish("Parsed %q in {time} seconds", dota.vpk_cosmetic_dir)
+
+local items_file = assert(pak:getFile(dota.vpk_items_dir))
+
+benchmark.start()
+local item_data = steam.VDFToTable(items_file:readAll())['DOTAAbilities']
+items_file:close()
+benchmark.finish("Parsed %q in {time} seconds", dota.vpk_items_dir)
+
+local abilities_file = assert(pak:getFile(dota.vpk_abilities_dir))
+
+benchmark.start()
+local ability_data = steam.VDFToTable(abilities_file:readAll())["DOTAAbilities"]
+abilities_file:close()
+benchmark.finish("Parsed %q in {time} seconds", dota.vpk_abilities_dir)
+
 local items_rendered = 0
 local abilities_rendered = 0
 
@@ -102,7 +123,7 @@ function dota.renderItemIcon(name,manacost,color)
 
 	local item_icon = string.format("%s/%s.png", dota.vpk_itemicons_dir, name)
 
-	if not pak:hasFile(item_icon) then return end
+	if not pak:hasFile(item_icon) then print("SKIPPING", name, item_icon) return end
 
 	local vpkrendered_icon = string.format("%s/%s/%s.png", dota.output_dir, dota.vpk_itemicons_dir, name)
 	dota.mkdir(vpkrendered_icon)
@@ -138,13 +159,32 @@ function dota.renderItemIcon(name,manacost,color)
 end
 
 function dota.parseItemIcons()
-	local items_file = assert(pak:getFile(dota.vpk_items_dir))
-	local items_str = items_file:readAll()
-	items_file:close()
+	local cosmetic_item_icons = {}
 
-	local items = steam.VDFToTable(items_str)['DOTAAbilities']
+	for name,cosmetic in pairs(cosmetic_data["items"]) do
+		if cosmetic["visuals"] then
+			for vistype,visual in pairs(cosmetic["visuals"]) do
+				if string.find(vistype, "asset_modifier") == 1 and visual["type"] == "icon_replacement" then
+					if not cosmetic_item_icons[visual['asset']] then
+						cosmetic_item_icons[visual['asset']] = {}
+					end
+					table.insert(cosmetic_item_icons[visual['asset']], visual['modifier'])
+				end
+			end
+		end
+	end
 
-	for name, info in pairs(items) do
+	for name, custom_icons in pairs(cosmetic_item_icons) do
+		local item = item_data["item_" .. name]
+		if item and item["AbilityManaCost"] then
+			for _,custom_icon in pairs(custom_icons) do
+				local manacost = item["AbilityManaCost"]
+				dota.renderItemIcon("item_" .. custom_icon,manacost,dota.fill_blue)
+			end
+		end
+	end
+
+	for name, info in pairs(item_data) do
 		local color = dota.fill_blue
 		if name ~= "Version" and info["AbilityManaCost"] then
 			local manacost = info["AbilityManaCost"]
@@ -164,13 +204,8 @@ function dota.parseItemIcons()
 end
 
 function dota.parseAbilityIcons()
-	local abilities_file = assert(pak:getFile(dota.vpk_abilities_dir))
-	local abilities_str = abilities_file:readAll()
-	abilities_file:close()
 
-	local abilities = steam.VDFToTable(abilities_str)["DOTAAbilities"]
-
-	for name, info in pairs(abilities) do
+	for name, info in pairs(ability_data) do
 		if name ~= "Version" and info["AbilityUnitDamageType"] and dota.dmg_type_color[info["AbilityUnitDamageType"]] then
 			local color = dota.dmg_type_color[info["AbilityUnitDamageType"]]
 			dota.renderSpellIcon(name,color)
@@ -181,15 +216,9 @@ function dota.parseAbilityIcons()
 	-- Cosmetic Abilities --
 	------------------------
 
-	local cosmetics_file = assert(pak:getFile(dota.vpk_cosmetic_dir))
-	local cosmetics_str = cosmetics_file:readAll()
-	cosmetics_file:close()
-	
-	local cosmetics = steam.VDFToTable(cosmetics_str)["items_game"]
-
 	local cosmetic_ability_icons = {}
 
-	for name,cosmetic in pairs(cosmetics["items"]) do
+	for name,cosmetic in pairs(cosmetic_data["items"]) do
 		if cosmetic["visuals"] then
 			for vistype,visual in pairs(cosmetic["visuals"]) do
 				if string.find(vistype, "asset_modifier") == 1 and visual["type"] == "ability_icon" then
@@ -202,7 +231,7 @@ function dota.parseAbilityIcons()
 		end
 	end
 
-	for name,cosmetic in pairs(cosmetics["asset_modifiers"]) do
+	for name,cosmetic in pairs(cosmetic_data["asset_modifiers"]) do
 		for _,visual in pairs(cosmetic) do
 			if type(visual) == "table" and visual["type"] == "ability_icon" then
 				if not cosmetic_ability_icons[visual['asset']] then
@@ -213,11 +242,11 @@ function dota.parseAbilityIcons()
 		end
 	end
 
-	for name, customnames in pairs(cosmetic_ability_icons) do
-		local info = abilities[name]
+	for name, custom_icons in pairs(cosmetic_ability_icons) do
+		local info = ability_data[name]
 		if info and info["AbilityUnitDamageType"] and dota.dmg_type_color[info["AbilityUnitDamageType"]] then
 			local color = dota.dmg_type_color[info["AbilityUnitDamageType"]]
-			for _,custom_icon in pairs(customnames) do
+			for _,custom_icon in pairs(custom_icons) do
 				dota.renderSpellIcon(custom_icon,color)
 			end
 		end
