@@ -2,7 +2,7 @@ local vpk = require("modules.vpk")
 local steam = require("modules.steam")
 local benchmark = require("modules.benchmark")
 
-local limlib2 = require("limlib2")
+local imlib2 = require("modules.imlib2")
 
 local dota = {
 	vpk_dir = "/media/jake/storage/Games/SteamApps/common/dota 2 beta/game/dota/pak01_dir.vpk",
@@ -19,18 +19,18 @@ local dota = {
 
 	output_dir = "rendered_icons",
 
-	fill_blue = limlib2.color.new(0,138,230,150),
-	fill_green = limlib2.color.new(105,215,20,150),
-	fill_gold = limlib2.color.new(252,188,62,150),
-	fill_black = limlib2.color.new(0,0,0,255),
-	fill_white = limlib2.color.new(255,255,255,255),
+	fill_blue = imlib2.color(0,138,230,150),
+	fill_green = imlib2.color(105,215,20,150),
+	fill_gold = imlib2.color(252,188,62,150),
+	fill_black = imlib2.color(0,0,0,255),
+	fill_white = imlib2.color(255,255,255,255),
 
-	font = imlib2.font.load("Aerial/11"),
+	font = imlib2.font("Aerial/11"),
 
 	dmg_type_color = {
-	    DAMAGE_TYPE_PHYSICAL = limlib2.color.new(128,128,128,255), -- #808080
-	    DAMAGE_TYPE_MAGICAL = limlib2.color.new(0,127,255,255), -- #007FFF
-	    DAMAGE_TYPE_PURE = limlib2.color.new(255,0,0,255), -- #DAA520
+	    DAMAGE_TYPE_PHYSICAL = imlib2.color(128,128,128,255), -- #808080
+	    DAMAGE_TYPE_MAGICAL = imlib2.color(0,127,255,255), -- #007FFF
+	    DAMAGE_TYPE_PURE = imlib2.color(255,0,0,255), -- #DAA520
 	}
 }
 
@@ -61,75 +61,80 @@ benchmark.finish("Loaded %q in {time} seconds",dota.vpk_dir)
 local items_rendered = 0
 local abilities_rendered = 0
 
-do
-	local back_poly = imlib2.polygon.new()
-	back_poly:add_point(128-42, 0)
-	back_poly:add_point(128, 0)
-	back_poly:add_point(128, 42)
+function dota.renderSpellIcon(name,color)
+	local spell_icon = string.format("%s/%s.png", dota.vpk_spellicons_dir, name)
 
-	local color_poly = imlib2.polygon.new()
-	color_poly:add_point(128-38, 0)
-	color_poly:add_point(128, 0)
-	color_poly:add_point(128, 38)
+	if not pak:hasFile(spell_icon) then	return end
 
-	function dota.renderSpellIcon(name,color)
-		local spell_icon = string.format("%s/%s.png", dota.vpk_spellicons_dir, name)
+	local vpkrendered_icon = string.format("%s/%s/%s.png", dota.output_dir, dota.vpk_spellicons_dir, name)
+	dota.mkdir(vpkrendered_icon)
 
-		if not pak:hasFile(spell_icon) then	return end
+	local f = assert(pak:getFile(spell_icon))
+	f:save(vpkrendered_icon)
+	f:close()
 
-		local vpkrendered_icon = string.format("%s/%s/%s.png", dota.output_dir, dota.vpk_spellicons_dir, name)
-		dota.mkdir(vpkrendered_icon)
+	local back_poly = imlib2.poly()
+	back_poly:addPoint(128-42, 0)
+	back_poly:addPoint(128, 0)
+	back_poly:addPoint(128, 42)
 
-		local f = assert(pak:getFile(spell_icon))
-		f:save(vpkrendered_icon)
-		f:close()
+	local color_poly = imlib2.poly()
+	color_poly:addPoint(128-38, 0)
+	color_poly:addPoint(128, 0)
+	color_poly:addPoint(128, 38)
 
-		local img = imlib2.image.load(vpkrendered_icon)
-		img:fill_polygon(back_poly, dota.fill_black)
-		img:fill_polygon(color_poly, color)
-		img:save(vpkrendered_icon)
+	local img = imlib2.image(vpkrendered_icon)
+	img:fillPoly(back_poly, dota.fill_black)
+	img:fillPoly(color_poly, color)
+	img:save(vpkrendered_icon)
+	img:free()
 
-		abilities_rendered = abilities_rendered + 1
-	end
+	color_poly:free()
+	back_poly:free()
+
+	abilities_rendered = abilities_rendered + 1
 end
 
-do
-	local back_poly = imlib2.polygon.new()
-	back_poly:add_point(0, 47)
-	back_poly:add_point(25, 47)
-	back_poly:add_point(30, 64)
-	back_poly:add_point(0, 64)
+function dota.renderItemIcon(name,manacost,color)
+	name = name:sub(6)
 
-	function dota.renderItemIcon(name,manacost,color)
-		name = name:sub(6)
+	if name:sub(1,7) == "mystery" then return end
 
-		if name:sub(1,7) == "mystery" then return end
+	local item_icon = string.format("%s/%s.png", dota.vpk_itemicons_dir, name)
 
-		local item_icon = string.format("%s/%s.png", dota.vpk_itemicons_dir, name)
+	if not pak:hasFile(item_icon) then return end
 
-		if not pak:hasFile(item_icon) then print("SKIPPING", item_icon) return end
+	local vpkrendered_icon = string.format("%s/%s/%s.png", dota.output_dir, dota.vpk_itemicons_dir, name)
+	dota.mkdir(vpkrendered_icon)
 
-		local vpkrendered_icon = string.format("%s/%s/%s.png", dota.output_dir, dota.vpk_itemicons_dir, name)
-		dota.mkdir(vpkrendered_icon)
+	local prerendered_icon = string.format("%s/%s.png", dota.prerendered_items_dir, name)
+	local use_prerendered = false
 
-		local prerendered_icon = string.format("%s/%s.png", dota.prerendered_items_dir, name)
-		local use_prerendered = false
-
-		if file_exists(prerendered_icon) then
-			use_prerendered = true
-		else
-			local f = assert(pak:getFile(item_icon))
-			f:save(vpkrendered_icon)
-			f:close()
-		end
-
-		local img = imlib2.image.load(use_prerendered and prerendered_icon or vpkrendered_icon)
-		img:fill_polygon(back_poly, color)
-		img:draw_text(dota.font, manacost, (4 - string.len(manacost)) * 3, 49, dota.fill_white)
-		img:save(vpkrendered_icon)
-
-		items_rendered = items_rendered + 1
+	if file_exists(prerendered_icon) then
+		use_prerendered = true
+	else
+		local f = assert(pak:getFile(item_icon))
+		f:save(vpkrendered_icon)
+		f:close()
 	end
+
+	local width, height = dota.font:getSize(manacost)
+
+	local back_poly = imlib2.poly()
+	back_poly:addPoint(0, 47) -- Top left
+	back_poly:addPoint(6 + width, 47) -- Top right
+	back_poly:addPoint(6 + width + 5, 64) -- bottom right
+	back_poly:addPoint(0, 64) -- bottom left
+
+	local img = imlib2.image(use_prerendered and prerendered_icon or vpkrendered_icon)
+	img:fillPoly(back_poly, color)
+	img:drawText(dota.font, manacost, 3, 64 - height, dota.fill_white)
+	img:save(vpkrendered_icon)
+	img:free()
+
+	back_poly:free()
+
+	items_rendered = items_rendered + 1
 end
 
 function dota.parseItemIcons()

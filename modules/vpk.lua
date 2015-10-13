@@ -304,11 +304,9 @@ function VPK:save(outFile)
 		f:write(ext .. "\0")
 
 		for relpath in pairs(self.tree[ext]) do
-
 			f:write(relpath .. "\0")
 
 			for filename,filepath in pairs(self.tree[ext][relpath]) do
-
 				f:write(filename .. "\0")
 
 				local metadata_offset = f:seek()

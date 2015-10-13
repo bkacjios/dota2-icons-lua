@@ -17,12 +17,12 @@ This script will automatically parse all spell icons and item icons. It will use
 ## To-do list
 
 - [x] Convert struct to ffi and drop dependancy
-- [ ] Convert imlib2 to ffi and drop dependancy
+- [X] Convert imlib2 to ffi and drop dependancy
 
 ## Build Requirements
 * http://luajit.org/download.html
-* https://github.com/asb/lua-imlib2
 * https://github.com/keplerproject/luafilesystem
+* http://freecode.com/projects/imlib2
 
 ### Build instructions
 * Edit [render.lua](https://github.com/blackawps/dota2-icons-lua/blob/master/render.lua) and modify any of the paths to suit your needs
