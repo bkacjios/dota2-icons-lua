@@ -19,13 +19,14 @@ local dota = {
 
 	output_dir = "rendered_icons",
 
-	fill_blue = imlib2.color(0,138,230,150),
-	fill_green = imlib2.color(105,215,20,150),
-	fill_gold = imlib2.color(252,188,62,150),
+	fill_blue = imlib2.color(0,138,230,100),
+	fill_green = imlib2.color(105,215,20,100),
+	fill_gold = imlib2.color(252,188,62,100),
 	fill_black = imlib2.color(0,0,0,255),
+	fill_shadow = imlib2.color(0,0,0,150),
 	fill_white = imlib2.color(255,255,255,255),
 
-	font = imlib2.font("Aerial/11"),
+	font = imlib2.font("Hypatia-Sans-Pro/11"),
 
 	dmg_type_color = {
 	    DAMAGE_TYPE_PHYSICAL = imlib2.color(128,128,128,255), -- #808080
@@ -100,9 +101,9 @@ function dota.renderSpellIcon(name,color)
 	back_poly:addPoint(128, 42)
 
 	local color_poly = imlib2.poly()
-	color_poly:addPoint(128-38, 0)
+	color_poly:addPoint(128-36, 0)
 	color_poly:addPoint(128, 0)
-	color_poly:addPoint(128, 38)
+	color_poly:addPoint(128, 36)
 
 	local img = imlib2.image(vpkrendered_icon)
 	img:fillPoly(back_poly, dota.fill_black)
@@ -141,19 +142,12 @@ function dota.renderItemIcon(name,manacost,color)
 
 	local width, height = dota.font:getSize(manacost)
 
-	local back_poly = imlib2.poly()
-	back_poly:addPoint(0, 47) -- Top left
-	back_poly:addPoint(6 + width, 47) -- Top right
-	back_poly:addPoint(6 + width + 5, 64) -- bottom right
-	back_poly:addPoint(0, 64) -- bottom left
-
 	local img = imlib2.image(use_prerendered and prerendered_icon or vpkrendered_icon)
-	img:fillPoly(back_poly, color)
+	img:fillElipse(3, 61, (width+6), height-3, color)
+	img:drawText(dota.font, manacost, 5, 66 - height, dota.fill_shadow)
 	img:drawText(dota.font, manacost, 3, 64 - height, dota.fill_white)
 	img:save(vpkrendered_icon)
 	img:free()
-
-	back_poly:free()
 
 	items_rendered = items_rendered + 1
 end
