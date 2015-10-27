@@ -143,7 +143,7 @@ function dota.renderItemIcon(name,manacost,color)
 	local width, height = dota.font:getSize(manacost)
 
 	local img = imlib2.image(use_prerendered and prerendered_icon or vpkrendered_icon)
-	img:fillElipse(3, 61, (width+6), height-3, color)
+	img:fillElipse(0, 64, (width+6), height, color)
 	img:drawText(dota.font, manacost, 5, 66 - height, dota.fill_shadow)
 	img:drawText(dota.font, manacost, 3, 64 - height, dota.fill_white)
 	img:save(vpkrendered_icon)
