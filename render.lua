@@ -55,14 +55,22 @@ function dota.mkdir(path)
 	end
 end
 
+-- Basically finds a section of the whole VDF file..
+local function find_data(str,section)
+	local str = str:match(string.format('\t"%s"\r\n\t{.-\r\n\t}\r\n', section)):gsub("\t(.-\r\n)", "%1")
+	return str
+end
+
 benchmark.start()
 local pak = vpk.load(dota.vpk_dir)
 benchmark.finish("Loaded %q in {time} seconds",dota.vpk_dir)
 
 local cosmetics_file = assert(pak:getFile(dota.vpk_cosmetic_dir))
+local cosmetics_raw = cosmetics_file:readAll()
 
 benchmark.start()
-local cosmetic_data = steam.VDFToTable(cosmetics_file:readAll())["items_game"]
+local items_data = steam.VDFToTable(find_data(cosmetics_raw, "items"))["items"]
+local asset_data = steam.VDFToTable(find_data(cosmetics_raw, "asset_modifiers"))["asset_modifiers"]
 cosmetics_file:close()
 benchmark.finish("Parsed %q in {time} seconds", dota.vpk_cosmetic_dir)
 
@@ -124,7 +132,7 @@ function dota.renderItemIcon(name,manacost,color)
 
 	local item_icon = string.format("%s/%s.png", dota.vpk_itemicons_dir, name)
 
-	if not pak:hasFile(item_icon) then print("SKIPPING", name, item_icon) return end
+	if not pak:hasFile(item_icon) then return end
 
 	local vpkrendered_icon = string.format("%s/%s/%s.png", dota.output_dir, dota.vpk_itemicons_dir, name)
 	dota.mkdir(vpkrendered_icon)
@@ -155,7 +163,7 @@ end
 function dota.parseItemIcons()
 	local cosmetic_item_icons = {}
 
-	for name,cosmetic in pairs(cosmetic_data["items"]) do
+	for name,cosmetic in pairs(items_data) do
 		if cosmetic["visuals"] then
 			for vistype,visual in pairs(cosmetic["visuals"]) do
 				if string.find(vistype, "asset_modifier") == 1 and visual["type"] == "icon_replacement" then
@@ -212,7 +220,7 @@ function dota.parseAbilityIcons()
 
 	local cosmetic_ability_icons = {}
 
-	for name,cosmetic in pairs(cosmetic_data["items"]) do
+	for name,cosmetic in pairs(items_data) do
 		if cosmetic["visuals"] then
 			for vistype,visual in pairs(cosmetic["visuals"]) do
 				if string.find(vistype, "asset_modifier") == 1 and visual["type"] == "ability_icon" then
@@ -225,7 +233,7 @@ function dota.parseAbilityIcons()
 		end
 	end
 
-	for name,cosmetic in pairs(cosmetic_data["asset_modifiers"]) do
+	for name,cosmetic in pairs(asset_data) do
 		for _,visual in pairs(cosmetic) do
 			if type(visual) == "table" and visual["type"] == "ability_icon" then
 				if not cosmetic_ability_icons[visual['asset']] then

@@ -215,25 +215,22 @@ function VPK:readTree()
 end
 
 function VPK:_read_tree(f)
-	local buf = {}
+	local data = {}
 	local chunk
 
 	while true do
 		chunk = f:read(64)
-
 		if not chunk then break end
 
 		local pos = find(chunk,"\0")
-
 		if pos then
-			insert(buf, sub(chunk,1,pos-1))
+			insert(data, sub(chunk,1,pos-1))
 			f:seek("set", f:seek()-(len(chunk) - pos))
 			break
 		end
-
-		insert(buf, chunk)
+		insert(data, chunk)
 	end
-	return concat(buf)
+	return concat(data)
 end
 
 function VPK:addFiles(root, overwrite, vpk_path)
@@ -311,7 +308,6 @@ function VPK:save(outFile)
 
 				local metadata_offset = f:seek()
 				local file_offset = data_offset
-				local real_filename = (ext ~= " " and format("%s.%s", filename, ext) or filename)
 
 				local checksum = 0
 				f:seek("set", data_offset)
@@ -324,6 +320,8 @@ function VPK:save(outFile)
 					checksum = crc32(chunk, nil, checksum)
 					f:write(chunk)
 				end
+
+				pakFile:close()
 
 				data_offset = f:seek()
 				local file_size = f:seek() - file_offset
@@ -412,7 +410,9 @@ function VPKFile:save(path)
 	self.offset = 0
 	self.archive:seek("set", self.archive_offset)
 
-	local f = assert(open(path, "wb"))
+	local f, err = open(path, "wb")
+
+	if not f then return false, err end
 
 	while true do
 		local chunk = self:read(1024)
@@ -423,39 +423,35 @@ function VPKFile:save(path)
 	f:close()
 
 	self.archive:seek("set",pos)
+
+	return true
 end
 
-do
+function VPKFile:read(length)
+	if not length or length <= 0 or self.offset >= self.preload_size + self.file_size then
+		return
+	end
+
 	local left = 0
 	local readlen = 0
-	local data = ""
+	local data = {}
 
-	function VPKFile:read(length)
-		length = length or -1
-
-		if length == 0 or self.offset >= self.preload_size + self.file_size then
-			return
-		end
-
-		data = ""
-
-		if self.offset <= self.preload_size then
-			data = data .. sub(self.preload_data, self.offset, (length > -1 and self.offset + length or nil))
-			self.offset = self.offset + len(data)
-			if length > 0 then
-				length = max(length - len(data), 0)
-			end
-		end
-
-		if self.file_size > 0 and self.offset >= self.preload_size then
-			left = self.file_size - (self.offset - self.preload_size)
-			readlen = length == -1 and left or min(left, length)
-			data = data .. self.archive:read(readlen)
-			self.offset = self.offset + readlen
-		end
-
-		return data
+	if self.offset <= self.preload_size then
+		left = self.preload_size - self.offset
+		readlen = length and left or min(left, length)
+		insert(data, sub(self.preload_data, self.offset, self.offset + readlen))
+		self.offset = self.offset + readlen
+		length = max(length - readlen, 0)
 	end
+
+	if self.file_size > 0 and self.offset >= self.preload_size then
+		left = self.file_size - (self.offset - self.preload_size)
+		readlen = length and left or min(left, length)
+		insert(data, self.archive:read(readlen))
+		self.offset = self.offset + readlen
+	end
+
+	return concat(data)
 end
 
 function VPKFile:readAll()
