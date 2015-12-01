@@ -66,7 +66,7 @@ local pak = vpk.load(dota.vpk_dir)
 benchmark.finish("Loaded %q in {time} seconds",dota.vpk_dir)
 
 local cosmetics_file = assert(pak:getFile(dota.vpk_cosmetic_dir))
-local cosmetics_raw = cosmetics_file:readAll()
+local cosmetics_raw = cosmetics_file:read("*all")
 
 benchmark.start()
 local items_data = steam.VDFToTable(find_data(cosmetics_raw, "items"))["items"]
@@ -77,14 +77,14 @@ benchmark.finish("Parsed %q in {time} seconds", dota.vpk_cosmetic_dir)
 local items_file = assert(pak:getFile(dota.vpk_items_dir))
 
 benchmark.start()
-local item_data = steam.VDFToTable(items_file:readAll())['DOTAAbilities']
+local item_data = steam.VDFToTable(items_file:read("*all"))['DOTAAbilities']
 items_file:close()
 benchmark.finish("Parsed %q in {time} seconds", dota.vpk_items_dir)
 
 local abilities_file = assert(pak:getFile(dota.vpk_abilities_dir))
 
 benchmark.start()
-local ability_data = steam.VDFToTable(abilities_file:readAll())["DOTAAbilities"]
+local ability_data = steam.VDFToTable(abilities_file:read("*all"))["DOTAAbilities"]
 abilities_file:close()
 benchmark.finish("Parsed %q in {time} seconds", dota.vpk_abilities_dir)
 

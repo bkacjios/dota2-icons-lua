@@ -1,4 +1,3 @@
-
 require("modules.string")
 require("modules.table")
 
@@ -14,6 +13,7 @@ local tonumber = tonumber
 
 local open = io.open
 local insert = table.insert
+local getn = table.getn
 local len = string.len
 local format = string.format
 local find = string.find
@@ -25,6 +25,7 @@ local concat = table.concat
 local StripExtension = string.StripExtension
 local ExtensionFromFile = string.ExtensionFromFile
 local match = string.match
+local type = type
 
 module(...)
 
@@ -137,7 +138,7 @@ function VPK:readHeader()
 		-- TODO: Handle the extended V2 header info
 		self.header_size = size + size2
 	else
-		error("Unsupported VPK version: " .. self.version)
+		return error("Unsupported VPK version: " .. self.version)
 	end
 	f:close()
 end
@@ -157,7 +158,7 @@ function VPK:readTree()
 
 	while true do
 		if self.version > 0 and f:seek() > self.tree_size + self.header_size then
-			error("Error parsing index (out of bounds)")
+			return error("Error parsing archive tree (header out of bounds)")
 		end
 
 		local ext = self:_read_tree(f)
@@ -405,10 +406,8 @@ end
 --------------------------------
 
 function VPKFile:save(path)
-	local pos = self.archive:seek()
-
-	self.offset = 0
-	self.archive:seek("set", self.archive_offset)
+	local pos = self:seek()
+	self:seek("set")
 
 	local f, err = open(path, "wb")
 
@@ -422,56 +421,85 @@ function VPKFile:save(path)
 
 	f:close()
 
-	self.archive:seek("set",pos)
+	self:seek("set",pos)
 
 	return true
 end
 
-function VPKFile:read(length)
-	if not length or length <= 0 or self.offset >= self.preload_size + self.file_size then
-		return
+function VPKFile:seek(whence, offset)
+	whence = whence or "cur"
+	offset = offset or 0
+	if whence == "cur" then
+		self.offset = self.offset + offset
+	elseif whence == "set" then
+		self.offset = offset
+	elseif whence == "end" then
+		self.offset = self.file_size + offset
 	end
 
-	local left = 0
-	local readlen = 0
-	local data = {}
-
-	if self.offset <= self.preload_size then
-		left = self.preload_size - self.offset
-		readlen = length and left or min(left, length)
-		insert(data, sub(self.preload_data, self.offset, self.offset + readlen))
-		self.offset = self.offset + readlen
-		length = max(length - readlen, 0)
-	end
-
-	if self.file_size > 0 and self.offset >= self.preload_size then
-		left = self.file_size - (self.offset - self.preload_size)
-		readlen = length and left or min(left, length)
-		insert(data, self.archive:read(readlen))
-		self.offset = self.offset + readlen
-	end
-
-	return concat(data)
+	self.archive:seek("set", self.archive_offset + self.offset)
+	return self.offset
 end
 
-function VPKFile:readAll()
-	local pos = self.archive:seek()
+function VPKFile:lines()
+	return function()
+		return self:read("*line") 
+	end
+end
 
-	self.offset = 0
-	self.archive:seek("set", self.archive_offset)
-
+function VPKFile:read(length)
 	local data = {}
-	local chunk
 
-	while true do
-		chunk = self:read(1024)
-		if not chunk then break end
-		insert(data,chunk)
+	if type(length) == "string" then
+		if length == "*all" or length == "*a" then
+			local raw = true
+			while raw do
+				raw = self:read(1024)
+				if not raw then break end
+				insert(data,raw)
+			end
+		elseif length == "*line" or length == "*l" then
+			local raw = true
+			local readpos
+			local startpos, endpos
+			local done = false
+			while raw do
+				readpos = self:seek()
+				raw = self:read(1024)
+				if not raw then return end
+				startpos, endpos = raw:find("\r?\n")
+				if startpos and endpos then
+					raw = sub(raw, 1, startpos-1)
+					self.offset = readpos + endpos
+					done = true
+				end
+				insert(data,raw)
+				if done then break end
+			end
+		else
+			return error(format("Unhandled read type %q", length))
+		end
+	elseif length and length > 0 and self.offset < self.preload_size + self.file_size then
+		local left = 0
+		local readlen = 0
+
+		if self.offset < self.preload_size then
+			left = self.preload_size - self.offset
+			readlen = min(left, length)
+			insert(data, sub(self.preload_data, self.offset, self.offset + readlen))
+			self.offset = self.offset + readlen
+			length = max(length - readlen, 0)
+		end
+
+		if self.file_size > 0 and self.offset >= self.preload_size then
+			left = self.file_size - (self.offset - self.preload_size)
+			readlen = min(left, length)
+			insert(data, self.archive:read(readlen))
+			self.offset = self.offset + readlen
+		end
 	end
 
-	self.archive:seek("set",pos)
-
-	return concat(data)
+	return getn(data) > 0 and concat(data) or nil
 end
 
 function VPKFile:close()
@@ -479,10 +507,8 @@ function VPKFile:close()
 end
 
 function VPKFile:verify()
-	local pos = self.archive:seek()
-
-	self.offset = 0
-	self.archive:seek("set", self.archive_offset)
+	local pos = self:seek()
+	self:seek("set")
 
 	local checksum = 0
 	local chunk
@@ -493,7 +519,7 @@ function VPKFile:verify()
 		checksum = crc32(chunk, nil, checksum)
 	end
 
-	self.archive:seek("set",pos)
+	self:seek("set", pos)
 
 	return tonumber(ffi.cast("unsigned int", checksum)) == self.crc32
 end
