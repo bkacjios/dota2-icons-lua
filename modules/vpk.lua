@@ -26,6 +26,7 @@ local StripExtension = string.StripExtension
 local ExtensionFromFile = string.ExtensionFromFile
 local match = string.match
 local type = type
+local unpack = unpack
 
 module(...)
 
@@ -447,59 +448,90 @@ function VPKFile:lines()
 	end
 end
 
-function VPKFile:read(length)
-	local data = {}
+do
 
-	if type(length) == "string" then
-		if length == "*all" or length == "*a" then
-			local raw = true
-			while raw do
-				raw = self:read(1024)
-				if not raw then break end
-				insert(data,raw)
-			end
-		elseif length == "*line" or length == "*l" then
-			local raw = true
-			local readpos
-			local startpos, endpos
-			local done = false
-			while raw do
-				readpos = self:seek()
-				raw = self:read(1024)
-				if not raw then return end
-				startpos, endpos = raw:find("\r?\n")
-				if startpos and endpos then
-					raw = sub(raw, 1, startpos-1)
-					self.offset = readpos + endpos
-					done = true
-				end
-				insert(data,raw)
-				if done then break end
-			end
-		else
-			return error(format("Unhandled read type %q", length))
-		end
-	elseif length and length > 0 and self.offset < self.preload_size + self.file_size then
-		local left = 0
-		local readlen = 0
+local function read(file, buffer, length)
+	local left = 0
+	local readlen = 0
 
-		if self.offset < self.preload_size then
-			left = self.preload_size - self.offset
-			readlen = min(left, length)
-			insert(data, sub(self.preload_data, self.offset, self.offset + readlen))
-			self.offset = self.offset + readlen
-			length = max(length - readlen, 0)
+	if file.offset < file.preload_size then
+		left = file.preload_size - file.offset
+		readlen = min(left, length)
+		insert(buffer, sub(file.preload_data, file.offset, file.offset + readlen))
+		file.offset = file.offset + readlen
+		length = max(length - readlen, 0)
+	end
+
+	if file.file_size > 0 and file.offset >= file.preload_size and file.offset < file.file_size then
+		left = file.file_size - (file.offset - file.preload_size)
+		readlen = min(left, length)
+		insert(buffer, file.archive:read(readlen))
+		file.offset = file.offset + readlen
+	end
+
+	return readlen
+end
+
+local function readLine(file, buffer)
+	local buff = {}
+	local startpos, endpos, readpos, done, raw
+
+	while true do
+		readpos = file:seek()
+
+		if read(file, buff, 1024) <= 0 then return end
+
+		raw = concat(buff)
+		startpos, endpos = raw:find("\r?\n")
+
+		if startpos and endpos then
+			raw = sub(raw, 1, startpos-1)
+			file.offset = readpos + endpos
+			done = true
 		end
 
-		if self.file_size > 0 and self.offset >= self.preload_size then
-			left = self.file_size - (self.offset - self.preload_size)
-			readlen = min(left, length)
-			insert(data, self.archive:read(readlen))
-			self.offset = self.offset + readlen
+		insert(buffer,raw)
+
+		if done then break end
+	end
+end
+
+function VPKFile:read(...)
+	local args = {...}
+
+	if getn(args) <= 0 then
+		local buffer = {}
+		readLine(self, buffer)
+		return concat(buffer)
+	end
+
+	local returns = {}
+
+	for n,arg in pairs(args) do
+		local buffer = {}
+		if type(arg) == "string" then
+			if arg:sub(1,2) == "*a" then
+				while read(self, buffer, 1024) > 0 do end
+			elseif arg:sub(1,2) == "*l" then
+				readLine(self, buffer)
+			else
+				return error(format("bad argument #%i to 'read' (invalid format)",n))
+			end
+		elseif arg > 0 and self.offset < self.preload_size + self.file_size then
+			read(self, buffer, arg)
+		end
+		if getn(buffer) > 0 then
+			insert(returns, concat(buffer))
 		end
 	end
 
-	return getn(data) > 0 and concat(data) or nil
+	if getn(returns) > 0 then
+		return unpack(returns)
+	end
+
+	return nil
+end
+
 end
 
 function VPKFile:close()
