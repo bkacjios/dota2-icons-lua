@@ -7,7 +7,7 @@ local remove = table.remove
 local tonumber = tonumber
 local type = type
 
-module(...)
+module("steam")
 
 function VDFToTable(str, lower_or_modify_keys, preprocess)
 	if not str or str == "" then return nil, "data is empty" end

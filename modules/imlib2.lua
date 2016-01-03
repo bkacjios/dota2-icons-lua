@@ -5,7 +5,7 @@ local tonumber = tonumber
 local setmetatable = setmetatable
 local insert = table.insert
 
-module(...)
+module("imlib2")
 
 ffi.cdef[[
 /* opaque data types */

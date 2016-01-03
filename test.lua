@@ -1,6 +1,8 @@
-local vpk = require("modules.vpk")
-local crc32 = require("modules.crc32")
-local imlib2 = require("modules.imlib2")
+package.path = './modules/?.lua;' .. package.path
+
+local vpk = require("vpk")
+local crc32 = require("crc32")
+local imlib2 = require("imlib2")
 
 local pak = vpk.new()
 pak:addFiles("test")
@@ -9,13 +11,23 @@ pak:save("test.vpk")
 print("Directory")
 for k,v in pairs(pak.directory) do print("\t" .. k) end
 
-local f = assert(pak:getFile("something.txt"))
-print("DATA", f:read("*all"))
+local f = assert(pak:getFile("folder/loremipsum.txt"))
+print("LOREMIPSUM", f:read("*line"))
 print("VERYIFY", f:verify())
-
 f:close()
 
-local font = imlib2.font("Hypatia-Sans-Pro/11")
+local f = assert(pak:getFile("something.txt"))
+print("SOMETHING", f:read("*line"))
+print("VERYIFY", f:verify())
+f:close()
+
+local f = assert(pak:getFile("folder/words.txt"))
+for word in f:lines() do
+	print(word)
+end
+f:close()
+
+--[[local font = imlib2.font("Hypatia-Sans-Pro/11")
 print(font:getSize("Tiejajdsiao"))
 
 imlib2.font.addPath("fonts/")
@@ -34,4 +46,4 @@ img:blendImage(test, false, 0, 0, 128, 64, 0, 0, 128, 64)
 test:free()
 
 img:save("test.png")
-img:free()
+img:free()]]

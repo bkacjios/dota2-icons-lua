@@ -1,9 +1,8 @@
-require("modules.string")
-require("modules.table")
+require("string.util")
 
 local lfs = require("lfs")
 local ffi = require("ffi")
-local crc32 = require("modules.crc32")
+local crc32 = require("crc32")
 
 local error = error
 local pairs = pairs
@@ -28,7 +27,7 @@ local match = string.match
 local type = type
 local unpack = unpack
 
-module(...)
+module("vpk")
 
 ffi.cdef[[
 #pragma pack(1)
@@ -348,7 +347,7 @@ function VPK:getFileMetadata(path)
 	local metadata = self.directory[path]
 
 	if not metadata then
-		return false, format("File (%q) not found in VPK tree", path)
+		return false, format("file not found in VPK tree (%s) ", path)
 	end
 
 	return {
@@ -379,8 +378,8 @@ function VPK:getFile(path)
 	metadata.vpk = self
 	metadata.offset = 0
 
-	if metadata.file_size == 0 then
-		return false, format("File (%q) has a length of zero", path)
+	if metadata.file_size <= 0 then
+		return false, format("file has no length (%s)", path)
 	end
 
 	local path = self.vpk_path
@@ -423,7 +422,6 @@ function VPKFile:save(path)
 	f:close()
 
 	self:seek("set",pos)
-
 	return true
 end
 

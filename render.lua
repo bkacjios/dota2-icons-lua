@@ -1,8 +1,9 @@
-local vpk = require("modules.vpk")
-local steam = require("modules.steam")
-local benchmark = require("modules.benchmark")
+package.path = './modules/?.lua;' .. package.path
 
-local imlib2 = require("modules.imlib2")
+local vpk = require("vpk")
+local steam = require("steam")
+local benchmark = require("benchmark")
+local imlib2 = require("imlib2")
 
 local dota = {
 	vpk_dir = "/media/jake/storage/Games/SteamApps/common/dota 2 beta/game/dota/pak01_dir.vpk",
